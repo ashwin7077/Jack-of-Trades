@@ -730,8 +730,8 @@ button { font: inherit; color: inherit; }
 .skill-figure::before {                    /* backlight, so the black suit separates from the dark */
   content: ""; position: absolute; inset: 2% -30% 8%;
   background:
-    radial-gradient(ellipse 38% 30% at 50% 26%, rgba(var(--glow-rgb), .30), transparent 72%),
-    radial-gradient(ellipse 55% 48% at 50% 42%, rgba(var(--accent-rgb), .20), transparent 75%);
+    radial-gradient(ellipse 36% 28% at 50% 26%, rgba(var(--glow-rgb), .12), transparent 72%),
+    radial-gradient(ellipse 52% 46% at 50% 42%, rgba(var(--accent-rgb), .08), transparent 75%);
   filter: blur(6px);
   z-index: -1;
   pointer-events: none;
@@ -740,7 +740,7 @@ button { font: inherit; color: inherit; }
 .skill-figure::after {                     /* gilt horizon where the photo fades out */
   content: ""; position: absolute; left: -16%; right: -16%; bottom: 0; height: 1px;
   background: linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold-light) 50%, var(--gold) 70%, transparent);
-  box-shadow: 0 0 18px 1px rgba(var(--accent-rgb), .45);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), .2);
 }
 .skill-figure picture {
   display: block; height: 100%;
@@ -755,13 +755,13 @@ button { font: inherit; color: inherit; }
 .skill-figure img {
   width: 100%; height: auto;
   /* a fine warm rim around his outline, then a soft halo */
-  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .6)) drop-shadow(0 0 4px rgba(var(--accent-rgb), .25));
+  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .3));
   transform-origin: 50% 30%;
   transition: transform 1.2s var(--ease), filter 1.2s var(--ease);
 }
 .skill-figure:hover img {
   transform: scale(1.025);
-  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .85)) drop-shadow(0 0 6px rgba(var(--accent-rgb), .4));
+  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .5));
 }
 .skill-figure:hover::before { transform: scale(1.06); }
 
