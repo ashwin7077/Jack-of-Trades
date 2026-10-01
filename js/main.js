@@ -145,7 +145,10 @@
   /* ---------- Contact: the envelope ----------
      One progress value p (0 sealed → 1 open) sets every piece:
      seal cracks → flap swings open → letter rises out → letter settles
-     in front. Plays once, when the envelope is well into view.        */
+     in front. The scene keeps its final (open) size the whole time and
+     only transforms move, so nothing on the page shifts while it plays.
+     The sealed envelope waits near the top of that space and glides down
+     to its resting place as the letter comes out.                      */
   const scene = document.getElementById("envScene");
   if (scene && !reduceMotion) {
     const letter = scene.querySelector(".env-letter");
@@ -156,68 +159,112 @@
     const seg = (p, a, b) => clamp01((p - a) / (b - a));
     const ease = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const lerp = (a, b, t) => a + (b - a) * t;
-    let letterH = 0, envH = 0, baseTop = 0, p = 0;
+    let letterH = 0, envH = 0, sceneH = 0, p = 0, played = false;
 
     const measure = () => {
       letterH = letter.offsetHeight;
       envH = env.offsetHeight;
-      scene.style.marginTop = "";
-      baseTop = parseFloat(getComputedStyle(scene).marginTop) || 0;
+      sceneH = scene.offsetHeight;                          // the final, open layout
     };
     const render = () => {
-      const crack = seg(p, 0, .16), open = ease(seg(p, .1, .42)),
-            rise = ease(seg(p, .4, .72)), settle = ease(seg(p, .72, 1)),
-            grow = ease(seg(p, .38, 1));
+      const crack = seg(p, 0, .14), open = ease(seg(p, .08, .36)),
+            toMid = ease(seg(p, .18, .42)), rise = ease(seg(p, .4, .72)),
+            settle = ease(seg(p, .72, 1));
       seal.style.setProperty("--crack", crack.toFixed(3));
       flap.style.transform = `perspective(1600px) rotateX(${(open * 180).toFixed(1)}deg)`;
       flap.style.zIndex = open > .5 ? 1 : 4;               // past upright: tuck behind the letter
 
-      // the scene starts as just the envelope and grows to fit the letter,
-      // so the envelope (pinned to its bottom) slides down as the letter comes out
-      const sealedH = envH + 20, openH = letterH + envH / 2;
-      const sceneH = lerp(sealedH, openH, grow);
-      scene.style.height = sceneH.toFixed(1) + "px";
-      const envTop = sceneH - envH;
+      // where the envelope's top edge sits inside the scene: near the top while
+      // sealed, a middle height while the letter rises (so all of it is in view),
+      // then its resting place at the bottom as the letter settles in front;
+      // always low enough that the raised flap stays inside the scene
+      const restTop = sceneH - envH;
+      const midTop = Math.min(restTop, envH * .72 + 16);
+      const flapUp = Math.max(0, -Math.cos(open * Math.PI)) * envH * .6;
+      let envTop = lerp(lerp(12, midTop, toMid), restTop, settle);
+      envTop = Math.min(restTop, Math.max(envTop, flapUp + 8));
+      env.style.setProperty("--lift", (envTop - restTop).toFixed(1) + "px");
 
       const rel = lerp(14, -envH * .72, rise);             // letter top relative to the envelope rim
-      const ty = settle > 0 ? lerp(envTop - envH * .72, 0, settle) : envTop + rel;
+      const ty = settle > 0 ? lerp(midTop - envH * .72, 0, settle) : envTop + rel;
       const shown = envTop + envH - 14 - ty;               // part of the letter above the envelope floor
       const clip = Math.max(0, letterH - shown) * (1 - settle);
       letter.style.transform = `translateY(${ty.toFixed(1)}px)`;
       letter.style.clipPath = `inset(0 0 ${clip.toFixed(1)}px 0)`;
       letter.style.zIndex = settle > 0 ? 5 : 2;            // inside the pocket until it comes forward
       env.style.setProperty("--drop", (settle * 18).toFixed(1) + "px");
-
-      // keep the heading clear: add just enough room above for the raised flap and the rising letter
-      const flapUp = Math.max(0, -Math.cos(open * Math.PI)) * envH * .6;
-      const need = Math.max(0, flapUp - envTop + 16, -ty + 16 * (1 - settle));   // continuous, 0 at rest
-      scene.style.marginTop = (baseTop + need).toFixed(1) + "px";
+    };
+    const rest = () => {
+      letter.style.transform = letter.style.clipPath = "";
+      env.style.setProperty("--lift", "0px");
+      // the letter is out: let the empty envelope fall away, then close up its space
+      setTimeout(() => scene.classList.add("env-leaving"), 350);
+      setTimeout(() => scene.classList.add("env-done"), 1000);
+      setTimeout(() => {                                     // the whole card, down to the signature
+        const r = letter.getBoundingClientRect(), top = navBottom() + 16;
+        if (r.top < top || r.bottom > window.innerHeight - 16) frame(0, letterH);
+      }, 1900);
     };
 
-    const refresh = () => { measure(); if (p < 1) render(); };
+    const refresh = () => { measure(); if (!played || p < 1) render(); };
     refresh();
-    window.addEventListener("resize", refresh);
+    window.addEventListener("resize", () => { if (p < 1) refresh(); });
     window.addEventListener("load", refresh);
     if (document.fonts) document.fonts.ready.then(refresh);   // the letter reflows once Merriweather arrives
 
-    let played = false;
+    // ---- keep it framed: glide the page so the scene sits centred on screen ----
+    // (below the fixed nav). If the visitor scrolls themselves, stop helping.
+    let userTookOver = false;
+    const takeOver = () => { userTookOver = true; };
+    const navBottom = () => {
+      const n = document.getElementById("nav");
+      return n && !n.classList.contains("nav-hidden") ? n.getBoundingClientRect().bottom : 0;
+    };
+    // centre the band [from, from + h] of the scene in the visible area;
+    // if it is taller than the screen, line its top up just under the nav
+    const frame = (from, h) => {
+      if (userTookOver) return;
+      const top = navBottom() + 16, avail = window.innerHeight - top - 16;
+      const bandTop = scene.getBoundingClientRect().top + window.scrollY + from;
+      const y = h <= avail ? bandTop - top - (avail - h) / 2 : bandTop - top;
+      if (Math.abs(y - window.scrollY) > 8) window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    };
+
     const play = () => {
       if (played) return;
       played = true;
-      const t0 = performance.now(), DUR = 3400;
+      measure();
+      const t0 = performance.now(), DUR = 3000;
       const tick = (now) => {
         p = clamp01((now - t0) / DUR);
         render();
-        if (p < 1) requestAnimationFrame(tick);
-        else {                                           // rest in normal layout
-          letter.style.transform = letter.style.clipPath = scene.style.height = scene.style.marginTop = "";
-        }
+        if (p < 1) requestAnimationFrame(tick); else rest();
       };
       requestAnimationFrame(tick);
     };
+    // start as soon as the top of the scene is a third of the way up the screen,
+    // so the letter is out by the time a visitor has scrolled to it
     new IntersectionObserver((entries, io) => {
-      if (entries[0].isIntersecting) { io.disconnect(); setTimeout(play, 250); }
-    }, { threshold: .75 }).observe(env);
+      if (!entries[0].isIntersecting) return;
+      io.disconnect();
+      // wait until the visitor stops scrolling (their own scroll would cancel the glide),
+      // then frame everything the animation uses: the space the letter rises into
+      // and the envelope at its lowest point while the letter comes out
+      let idle = 0;
+      const begin = () => {
+        window.removeEventListener("scroll", onScroll);
+        ["wheel", "touchstart", "keydown"].forEach((ev) => window.addEventListener(ev, takeOver, { once: true, passive: true }));
+        measure();
+        const midTop = Math.min(sceneH - envH, envH * .72 + 16);
+        frame(0, Math.max(letterH, midTop + envH));
+        setTimeout(play, 520);                              // let the glide land first
+      };
+      const onScroll = () => { clearTimeout(idle); idle = setTimeout(begin, 220); };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      onScroll();
+    }, { rootMargin: "0px 0px -33% 0px" }).observe(scene);
+  } else if (scene) {
+    scene.classList.add("env-done");                        // no animation: just the letter
   }
 
   /* ---------- Contact: copy the address ---------- */

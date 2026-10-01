@@ -610,6 +610,11 @@ button { font: inherit; color: inherit; }
   text-align: justify;
   hyphens: auto; -webkit-hyphens: auto;
 }
+/* narrow columns justify badly (rivers of space), so phones read them left-aligned */
+@media (max-width: 640px) {
+  .about-grid p, .about-side blockquote,
+  .c-desc, .project-desc, .feature-abstract, .contact-lede { text-align: left; }
+}
 .about-body, .about-side { display: grid; gap: 28px; }
 .drop-cap { font-size: 1.12rem; line-height: 1.9; }
 .sr-only {
@@ -618,8 +623,8 @@ button { font: inherit; color: inherit; }
 }
 .drop-cap .drop {
   float: left;
-  font-size: 4.6em; line-height: .8;
-  padding: 8px 14px 0 0;
+  font-size: 3.05em; line-height: .86;
+  padding: 6px 10px 0 0;
   font-style: italic;
   color: var(--gold);
 }
@@ -713,8 +718,52 @@ button { font: inherit; color: inherit; }
 .skill-col li:hover { color: var(--gold-light); }
 .skill-col:first-child li:hover { padding-right: 10px; }
 .skill-col:last-child li:hover { padding-left: 10px; }
-.skill-crest { color: var(--gold); width: clamp(90px, 12vw, 140px); }
-.skill-crest svg { width: 100%; height: auto; }
+/* the portrait between the two lists: a front-facing cut-out, framed head to
+   just below the folder, standing in gold backlight on a gilt horizon */
+.skill-figure {
+  position: relative;
+  margin: 0;
+  width: clamp(220px, 23vw, 310px);
+  aspect-ratio: 520 / 900;                 /* head to just below the folder and hand */
+  isolation: isolate;
+}
+.skill-figure::before {                    /* backlight, so the black suit separates from the dark */
+  content: ""; position: absolute; inset: 2% -30% 8%;
+  background:
+    radial-gradient(ellipse 38% 30% at 50% 26%, rgba(var(--glow-rgb), .30), transparent 72%),
+    radial-gradient(ellipse 55% 48% at 50% 42%, rgba(var(--accent-rgb), .20), transparent 75%);
+  filter: blur(6px);
+  z-index: -1;
+  pointer-events: none;
+  transition: opacity .9s var(--ease), transform .9s var(--ease);
+}
+.skill-figure::after {                     /* gilt horizon where the photo fades out */
+  content: ""; position: absolute; left: -16%; right: -16%; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold) 30%, var(--gold-light) 50%, var(--gold) 70%, transparent);
+  box-shadow: 0 0 18px 1px rgba(var(--accent-rgb), .45);
+}
+.skill-figure picture {
+  display: block; height: 100%;
+  overflow: hidden;
+  /* a little room above his head and beside his arms, so the rim light isn't clipped */
+  padding: 3% 3% 0;
+  margin: -3% -3% 0;
+  box-sizing: content-box;
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 24%);
+          mask-image: linear-gradient(to top, transparent 0, #000 24%);
+}
+.skill-figure img {
+  width: 100%; height: auto;
+  /* a fine warm rim around his outline, then a soft halo */
+  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .6)) drop-shadow(0 0 4px rgba(var(--accent-rgb), .25));
+  transform-origin: 50% 30%;
+  transition: transform 1.2s var(--ease), filter 1.2s var(--ease);
+}
+.skill-figure:hover img {
+  transform: scale(1.025);
+  filter: drop-shadow(0 0 1px rgba(var(--glow-rgb), .85)) drop-shadow(0 0 6px rgba(var(--accent-rgb), .4));
+}
+.skill-figure:hover::before { transform: scale(1.06); }
 
 /* ---------- Honours ---------- */
 .honours { max-width: 900px; }
@@ -1161,7 +1210,12 @@ button { font: inherit; color: inherit; }
   max-width: 720px;
   margin-top: clamp(24px, 4vw, 44px);
   padding-bottom: 31.25%;               /* half the envelope (16:10) peeks below the letter */
+  transition: padding-bottom .8s var(--ease);
 }
+/* once the letter is out, the empty envelope falls away and its space closes up */
+.env-scene.env-leaving .envelope { opacity: 0; translate: 0 40px; transition: opacity .6s var(--ease), translate .6s var(--ease); }
+.env-scene.env-done { padding-bottom: 0; }
+.env-scene.env-done .envelope { display: none; }
 
 /* the letter: ivory stationery, ink text, gold-foil accents */
 .env-letter {
@@ -1241,8 +1295,9 @@ button { font: inherit; color: inherit; }
   position: absolute; left: 0; right: 0; bottom: 0;
   aspect-ratio: 16 / 10;
   --drop: 0px;
+  --lift: 0px;                            /* JS: how far above its resting place it is (negative = up) */
 }
-.env-back, .env-front, .env-flap { position: absolute; inset: 0; translate: 0 var(--drop); }
+.env-back, .env-front, .env-flap { position: absolute; inset: 0; translate: 0 calc(var(--drop) + var(--lift)); }
 .env-back {
   z-index: 1;
   background: linear-gradient(to bottom, var(--env-back-1), var(--env-back-2));
@@ -1274,7 +1329,7 @@ button { font: inherit; color: inherit; }
   position: absolute; z-index: 6;
   left: 50%; top: 60%;
   width: clamp(58px, 11vw, 84px); aspect-ratio: 1;
-  translate: -50% calc(-50% + var(--drop));
+  translate: -50% calc(-50% + var(--drop) + var(--lift));
   --crack: 1;                            /* resting state: already broken away */
   opacity: calc(1 - var(--crack));
   pointer-events: none;
@@ -1502,7 +1557,7 @@ button { font: inherit; color: inherit; }
   .about-grid { grid-template-columns: 1fr; }
 
   .skills { grid-template-columns: 1fr 1fr; }
-  .skill-crest { display: none; }
+  .skill-figure { grid-column: 1 / -1; order: -1; justify-self: center; width: min(62vw, 260px); margin-bottom: 8px; }
 
   .cert-grid { grid-template-columns: 1fr; }
   .project, .project.is-flip { grid-template-columns: 1fr; }
